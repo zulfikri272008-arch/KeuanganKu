@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>KeuanganKu - Pemisah Pemasukan/Pengeluaran & Tabungan</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .app-card {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .card-header h2 {
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+
+        .card-header p {
+            opacity: 0.9;
+            font-size: 0.85em;
+        }
+
+        .card-content {
+            padding: 20px;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-card h4 {
+            color: #666;
+            font-size: 0.75em;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .stat-card .value {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .stat-card.income .value { color: #10b981; }
+        .stat-card.expense .value { color: #ef4444; }
+        .stat-card.balance .value { color: #667eea; }
+
+        .form-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input, select, button {
+            padding: 10px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102,126,234,0.4);
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+        }
+
+        .btn-success {
+            background: #10b981;
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .filter-bar select, .filter-bar input {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85em;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        th {
+            background: #f8f9fa;
+            color: #666;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: bold;
+        }
+
+        .type-income { background: #d1fae5; color: #065f46; }
+        .type-expense { background: #fee2e2; color: #991b1b; }
+
+        .delete-btn {
+            background: #ef4444;
+            padding: 4px 10px;
+            font-size: 0.75em;
+        }
+
+        .edit-btn {
+            background: #f59e0b;
+            padding: 4px 10px;
+            font-size: 0.75em;
+        }
+
+        .saving-item {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .saving-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .saving-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #333;
+        }
+
+        .saving-amount {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .progress-bar {
+            background: #e5e7eb;
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.7em;
+        }
+
+        .saving-status {
+            font-size: 0.8em;
+            margin-top: 8px;
+            padding: 5px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .status-achieved {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-progress {
+            background: #fed7aa;
+            color: #92400e;
+        }
+
+        .saving-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .saving-actions button {
+            flex: 1;
+            padding: 6px;
+            font-size: 0.8em;
+        }
+
+        .chart-container {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+
+        canvas {
+            max-height: 250px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 20px;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .modal-content h3 {
+            margin-bottom: 20px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        hr {
+            margin: 15px 0;
+            border-color: #e5e7eb;
+        }
+
+        .amount-income {
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .amount-expense {
+            color: #ef4444;
+            font-weight: bold;
+        }
+
+        /* Perbaikan untuk dropdown select */
+        select {
+            word-break: normal;
+            white-space: normal;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* Style untuk option agar tidak terpotong */
+        select option {
+            padding: 8px;
+            white-space: normal;
+            word-break: break-word;
+        }
+        
+        /* Container untuk dropdown dengan tampilan lebih baik */
+        .saving-select-container {
+            width: 100%;
+        }
+        
+        select#selectSaving {
+            width: 100%;
+            max-width: 100%;
+            background-color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- APLIKASI 1: PEMASUKAN & PENGELUARAN -->
+        <div class="app-card">
+            <div class="card-header">
+                <h2>💰 Pencatatan Pemasukan & Pengeluaran</h2>
+                <p>Catat semua arus kas harian Anda</p>
+            </div>
+            <div class="card-content">
+                <div class="summary">
+                    <div class="stat-card income">
+                        <h4>Total Pemasukan</h4>
+                        <div class="value" id="cashIncome">Rp 0</div>
+                    </div>
+                    <div class="stat-card expense">
+                        <h4>Total Pengeluaran</h4>
+                        <div class="value" id="cashExpense">Rp 0</div>
+                    </div>
+                    <div class="stat-card balance">
+                        <h4>Sisa Kas</h4>
+                        <div class="value" id="cashBalance">Rp 0</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <input type="text" id="cashDesc" placeholder="Deskripsi">
+                    <input type="number" id="cashAmount" placeholder="Jumlah">
+                    <select id="cashCategory">
+                        <option value="Makanan">🍔 Makanan</option>
+                        <option value="Transportasi">🚗 Transportasi</option>
+                        <option value="Belanja">🛍️ Belanja</option>
+                        <option value="Tagihan">📱 Tagihan</option>
+                        <option value="Hiburan">🎬 Hiburan</option>
+                        <option value="Gaji">💼 Gaji</option>
+                        <option value="Lainnya">📌 Lainnya</option>
+                    </select>
+                    <select id="cashType">
+                        <option value="income">💰 Pemasukan</option>
+                        <option value="expense">💸 Pengeluaran</option>
+                    </select>
+                    <button id="addCashBtn">Tambah Transaksi</button>
+                </div>
+
+                <div class="filter-bar">
+                    <select id="cashFilterType">
+                        <option value="all">Semua</option>
+                        <option value="income">Pemasukan</option>
+                        <option value="expense">Pengeluaran</option>
+                    </select>
+                    <select id="cashFilterCategory">
+                        <option value="all">Semua Kategori</option>
+                    </select>
+                    <input type="month" id="cashFilterMonth">
+                    <button id="resetCashFilter" class="btn-secondary">Reset</button>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                    <button id="exportCashExcel" class="btn-success" style="flex:1;">📊 Export Excel</button>
+                    <button id="exportCashCSV" class="btn-secondary" style="flex:1;">📄 Export CSV</button>
+                    <button id="deleteAllCash" class="btn-danger" style="flex:1;">🗑️ Hapus Semua</button>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr><th>Tanggal</th><th>Deskripsi</th><th>Kategori</th><th>Jenis</th><th>Jumlah</th><th>Aksi</th></tr>
+                        </thead>
+                        <tbody id="cashTable"></tbody>
+                    </table>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="cashChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- APLIKASI 2: MANAJEMEN TABUNGAN -->
+        <div class="app-card">
+            <div class="card-header">
+                <h2>🏦 Manajemen Tabungan</h2>
+                <p>Catat target dan uang yang benar-benar Anda tabung</p>
+            </div>
+            <div class="card-content">
+                <div class="summary">
+                    <div class="stat-card">
+                        <h4>Total Tabungan</h4>
+                        <div class="value" id="totalSaved">Rp 0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Total Target</h4>
+                        <div class="value" id="totalTarget">Rp 0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Progress</h4>
+                        <div class="value" id="overallProgress">0%</div>
+                    </div>
+                </div>
+
+                <!-- FORM BUAT TARGET BARU -->
+                <div style="background: #f0fdf4; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #bbf7d0;">
+                    <h3 style="color: #065f46; margin-bottom: 10px; font-size: 1em;">🎯 Buat Target Tabungan Baru</h3>
+                    <div class="form-group">
+                        <input type="text" id="savingName" placeholder="Nama Target (contoh: Liburan Bali, Dana Darurat)">
+                        <input type="number" id="savingTarget" placeholder="Jumlah Target (Rp)">
+                        <button id="addSavingBtn" style="background: #10b981;">+ Buat Target</button>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- FORM TAMBAH UANG KE TABUNGAN - DIPERBAIKI -->
+                <div style="background: #fef3c7; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #fde68a;">
+                    <h3 style="color: #92400e; margin-bottom: 10px; font-size: 1em;">💰 Tambah Uang ke Tabungan</h3>
+                    <div class="form-group">
+                        <div class="saving-select-container" style="width: 100%;">
+                            <select id="selectSaving" style="width: 100%; font-size: 0.85em;">
+                                <option value="">-- Pilih Target Tabungan --</option>
+                            </select>
+                        </div>
+                        <input type="number" id="addSavingAmount" placeholder="Jumlah yang Ditabung (Rp)">
+                        <button id="addToSavingBtn" class="btn-success">➕ Tambah Tabungan</button>
+                    </div>
+                </div>
+
+                <hr>
+
+                <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                    <button id="exportSavingExcel" class="btn-success" style="flex:1;">📊 Export Excel</button>
+                    <button id="exportSavingCSV" class="btn-secondary" style="flex:1;">📄 Export CSV</button>
+                    <button id="deleteAllSaving" class="btn-danger" style="flex:1;">🗑️ Hapus Semua Target</button>
+                </div>
+
+                <!-- DAFTAR TABUNGAN -->
+                <div id="savingList" style="max-height: 400px; overflow-y: auto;"></div>
+
+                <div class="chart-container">
+                    <canvas id="savingChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Edit Cash -->
+    <div class="modal" id="editCashModal">
+        <div class="modal-content">
+            <h3>✏️ Edit Transaksi</h3>
+            <div class="form-group" style="grid-template-columns:1fr;">
+                <input type="text" id="editCashDesc" placeholder="Deskripsi">
+                <input type="number" id="editCashAmount" placeholder="Jumlah">
+                <select id="editCashCategory"></select>
+                <select id="editCashType">
+                    <option value="income">Pemasukan</option>
+                    <option value="expense">Pengeluaran</option>
+                </select>
+            </div>
+            <div class="modal-buttons">
+                <button id="saveCashEdit" class="btn-success">Simpan</button>
+                <button id="cancelCashEdit" class="btn-danger">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Edit Saving -->
+    <div class="modal" id="editSavingModal">
+        <div class="modal-content">
+            <h3>✏️ Edit Target Tabungan</h3>
+            <div class="form-group" style="grid-template-columns:1fr;">
+                <input type="text" id="editSavingName" placeholder="Nama Target">
+                <input type="number" id="editSavingTarget" placeholder="Target (Rp)">
+            </div>
+            <div class="modal-buttons">
+                <button id="saveSavingEdit" class="btn-success">Simpan</button>
+                <button id="cancelSavingEdit" class="btn-danger">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== DATA ====================
+        let cashTransactions = [];
+        let savings = [];
+
+        // ==================== LOAD & SAVE ====================
+        function loadData() {
+            const savedCash = localStorage.getItem('keuangan_cash');
+            if (savedCash) cashTransactions = JSON.parse(savedCash);
+            
+            const savedSavings = localStorage.getItem('keuangan_savings');
+            if (savedSavings) savings = JSON.parse(savedSavings);
+            
+            updateAll();
+        }
+
+        function saveData() {
+            localStorage.setItem('keuangan_cash', JSON.stringify(cashTransactions));
+            localStorage.setItem('keuangan_savings', JSON.stringify(savings));
+        }
+
+        // ==================== FORMAT ====================
+        function formatRupiah(amount) {
+            return 'Rp ' + amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        }
+
+        function formatDate(date) {
+            const d = new Date(date);
+            return d.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' });
+        }
+
+        function getCurrentMonth() {
+            const now = new Date();
+            return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ==================== CASH FUNCTIONS ====================
+        function getTotalCashIncome() {
+            return cashTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+        }
+
+        function getTotalCashExpense() {
+            return cashTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+        }
+
+        function getCashBalance() {
+            return getTotalCashIncome() - getTotalCashExpense();
+        }
+
+        function updateCashSummary() {
+            document.getElementById('cashIncome').textContent = formatRupiah(getTotalCashIncome());
+            document.getElementById('cashExpense').textContent = formatRupiah(getTotalCashExpense());
+            document.getElementById('cashBalance').textContent = formatRupiah(getCashBalance());
+        }
+
+        function updateCashFilterCategories() {
+            const categories = [...new Set(cashTransactions.map(t => t.category))];
+            const filterSelect = document.getElementById('cashFilterCategory');
+            const current = filterSelect.value;
+            filterSelect.innerHTML = '<option value="all">Semua Kategori</option>';
+            categories.forEach(cat => {
+                filterSelect.innerHTML += `<option value="${cat}">${cat}</option>`;
+            });
+            filterSelect.value = current;
+        }
+
+        function displayCashTransactions() {
+            const filterType = document.getElementById('cashFilterType').value;
+            const filterCategory = document.getElementById('cashFilterCategory').value;
+            const filterMonth = document.getElementById('cashFilterMonth').value;
+            
+            let filtered = [...cashTransactions];
+            if (filterType !== 'all') filtered = filtered.filter(t => t.type === filterType);
+            if (filterCategory !== 'all') filtered = filtered.filter(t => t.category === filterCategory);
+            if (filterMonth) {
+                filtered = filtered.filter(t => new Date(t.date).toISOString().slice(0,7) === filterMonth);
+            }
+            
+            filtered.sort((a,b) => new Date(b.date) - new Date(a.date));
+            
+            const tbody = document.getElementById('cashTable');
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Belum ada transaksi</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = filtered.map(t => `
+                <tr>
+                    <td>${formatDate(t.date)}</td>
+                    <td>${escapeHtml(t.description)}</td>
+                    <td>${t.category}</td>
+                    <td><span class="type-badge ${t.type === 'income' ? 'type-income' : 'type-expense'}">${t.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}</span></td>
+                    <td class="${t.type === 'income' ? 'amount-income' : 'amount-expense'}">${t.type === 'income' ? '+' : '-'} ${formatRupiah(t.amount)}</td>
+                    <td class="action-buttons">
+                        <button class="edit-btn" onclick="openEditCash('${t.id}')">Edit</button>
+                        <button class="delete-btn" onclick="deleteCash('${t.id}')">Hapus</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function addCashTransaction() {
+            const desc = document.getElementById('cashDesc').value.trim();
+            const amount = parseFloat(document.getElementById('cashAmount').value);
+            const type = document.getElementById('cashType').value;
+            const category = document.getElementById('cashCategory').value;
+            
+            if (!desc) { alert('Isi deskripsi!'); return; }
+            if (isNaN(amount) || amount <= 0) { alert('Jumlah tidak valid!'); return; }
+            
+            cashTransactions.push({
+                id: Date.now().toString(),
+                description: desc,
+                amount: amount,
+                type: type,
+                category: category,
+                date: new Date().toISOString()
+            });
+            saveData();
+            updateAll();
+            document.getElementById('cashDesc').value = '';
+            document.getElementById('cashAmount').value = '';
+            showNotification('Transaksi ditambahkan!', 'success');
+        }
+
+        function deleteCash(id) {
+            if (confirm('Hapus transaksi ini?')) {
+                cashTransactions = cashTransactions.filter(t => t.id !== id);
+                saveData();
+                updateAll();
+                showNotification('Transaksi dihapus!', 'success');
+            }
+        }
+
+        function deleteAllCash() {
+            if (cashTransactions.length === 0) { alert('Tidak ada data!'); return; }
+            if (confirm('Hapus SEMUA transaksi?')) {
+                cashTransactions = [];
+                saveData();
+                updateAll();
+                showNotification('Semua transaksi dihapus!', 'warning');
+            }
+        }
+
+        let currentEditCashId = null;
+        function openEditCash(id) {
+            const t = cashTransactions.find(t => t.id === id);
+            if (t) {
+                currentEditCashId = id;
+                document.getElementById('editCashDesc').value = t.description;
+                document.getElementById('editCashAmount').value = t.amount;
+                const catSelect = document.getElementById('editCashCategory');
+                catSelect.innerHTML = `
+                    <option value="Makanan">Makanan</option>
+                    <option value="Transportasi">Transportasi</option>
+                    <option value="Belanja">Belanja</option>
+                    <option value="Tagihan">Tagihan</option>
+                    <option value="Hiburan">Hiburan</option>
+                    <option value="Gaji">Gaji</option>
+                    <option value="Lainnya">Lainnya</option>
+                `;
+                catSelect.value = t.category;
+                document.getElementById('editCashType').value = t.type;
+                document.getElementById('editCashModal').classList.add('active');
+            }
+        }
+
+        function saveCashEdit() {
+            const t = cashTransactions.find(t => t.id === currentEditCashId);
+            if (t) {
+                t.description = document.getElementById('editCashDesc').value.trim();
+                t.amount = parseFloat(document.getElementById('editCashAmount').value);
+                t.category = document.getElementById('editCashCategory').value;
+                t.type = document.getElementById('editCashType').value;
+                if (!t.description || isNaN(t.amount) || t.amount <= 0) {
+                    alert('Data tidak valid!');
+                    return;
+                }
+                saveData();
+                updateAll();
+                closeCashModal();
+                showNotification('Transaksi diupdate!', 'success');
+            }
+        }
+
+        function closeCashModal() {
+            document.getElementById('editCashModal').classList.remove('active');
+            currentEditCashId = null;
+        }
+
+        // ==================== SAVINGS FUNCTIONS ====================
+        function getTotalSaved() {
+            return savings.reduce((sum, s) => sum + s.saved, 0);
+        }
+
+        function getTotalTarget() {
+            return savings.reduce((sum, s) => sum + s.target, 0);
+        }
+
+        function updateSavingSummary() {
+            const totalSaved = getTotalSaved();
+            const totalTarget = getTotalTarget();
+            const progress = totalTarget > 0 ? (totalSaved / totalTarget * 100).toFixed(1) : 0;
+            document.getElementById('totalSaved').textContent = formatRupiah(totalSaved);
+            document.getElementById('totalTarget').textContent = formatRupiah(totalTarget);
+            document.getElementById('overallProgress').textContent = progress + '%';
+        }
+
+        // PERBAIKAN: Fungsi update dropdown dengan format yang lebih rapi
+        function updateSavingSelect() {
+            const select = document.getElementById('selectSaving');
+            if (!select) return;
+            
+            select.innerHTML = '<option value="">-- Pilih Target Tabungan --</option>';
+            
+            if (savings.length === 0) {
+                select.innerHTML = '<option value="">-- Belum ada target, buat dulu ya! --</option>';
+                return;
+            }
+            
+            savings.forEach(s => {
+                const remaining = s.target - s.saved;
+                const percent = ((s.saved / s.target) * 100).toFixed(0);
+                // Format yang lebih ringkas agar tidak terpotong
+                const optionText = `${s.name.substring(0, 25)}${s.name.length > 25 ? '...' : ''} | ${formatRupiah(s.saved)} / ${formatRupiah(s.target)} (${percent}%)`;
+                const option = document.createElement('option');
+                option.value = s.id;
+                option.textContent = optionText;
+                option.title = `${s.name} - Terkumpul: ${formatRupiah(s.saved)} dari ${formatRupiah(s.target)} - Sisa: ${formatRupiah(remaining)}`;
+                select.appendChild(option);
+            });
+        }
+
+        function displaySavings() {
+            const container = document.getElementById('savingList');
+            if (savings.length === 0) {
+                container.innerHTML = '<div class="empty-state">✨ Belum ada target tabungan. Buat target baru di atas! ✨</div>';
+                return;
+            }
+            
+            container.innerHTML = savings.map(s => {
+                const progress = (s.saved / s.target * 100).toFixed(1);
+                const remaining = s.target - s.saved;
+                let statusClass = s.saved >= s.target ? 'status-achieved' : 'status-progress';
+                let statusText = s.saved >= s.target ? '✅ Target Tercapai! Selamat! 🎉' : `💪 Masih perlu ${formatRupiah(remaining)} lagi`;
+                
+                return `
+                    <div class="saving-item">
+                        <div class="saving-header">
+                            <span class="saving-name">🎯 ${escapeHtml(s.name)}</span>
+                            <span class="saving-amount">${formatRupiah(s.saved)} / ${formatRupiah(s.target)}</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${Math.min(progress, 100)}%">${progress}%</div>
+                        </div>
+                        <div class="saving-status ${statusClass}">${statusText}</div>
+                        <div class="saving-actions">
+                            <button class="edit-btn" onclick="openEditSaving('${s.id}')">✏️ Edit Target</button>
+                            <button class="delete-btn" onclick="deleteSaving('${s.id}')">🗑️ Hapus</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addSaving() {
+            const name = document.getElementById('savingName').value.trim();
+            const target = parseFloat(document.getElementById('savingTarget').value);
+            
+            if (!name) {
+                alert('❌ Mohon isi nama target tabungan!');
+                return;
+            }
+            if (isNaN(target) || target <= 0) {
+                alert('❌ Mohon isi jumlah target yang valid (lebih dari 0)!');
+                return;
+            }
+            
+            const newSaving = {
+                id: Date.now().toString(),
+                name: name,
+                target: target,
+                saved: 0,
+                history: []
+            };
+            
+            savings.push(newSaving);
+            saveData();
+            updateAll();
+            
+            document.getElementById('savingName').value = '';
+            document.getElementById('savingTarget').value = '';
+            
+            showNotification(`✅ Target "${name}" berhasil dibuat dengan target ${formatRupiah(target)}!`, 'success');
+        }
+
+        function addToSaving() {
+            const savingId = document.getElementById('selectSaving').value;
+            const amount = parseFloat(document.getElementById('addSavingAmount').value);
+            
+            if (!savingId) {
+                alert('❌ Pilih target tabungan terlebih dahulu!');
+                return;
+            }
+            if (isNaN(amount) || amount <= 0) {
+                alert('❌ Masukkan jumlah yang valid!');
+                return;
+            }
+            
+            const saving = savings.find(s => s.id === savingId);
+            if (saving) {
+                const newSaved = saving.saved + amount;
+                if (newSaved > saving.target) {
+                    alert(`⚠️ Jumlah melebihi target! Target ${formatRupiah(saving.target)}, saat ini sudah ${formatRupiah(saving.saved)}. Maksimal tambah ${formatRupiah(saving.target - saving.saved)}`);
+                    return;
+                }
+                
+                saving.saved = newSaved;
+                saving.history.push({
+                    amount: amount,
+                    date: new Date().toISOString()
+                });
+                saveData();
+                updateAll();
+                document.getElementById('addSavingAmount').value = '';
+                showNotification(`💰 Berhasil menabung ${formatRupiah(amount)} ke "${saving.name}"!`, 'success');
+            }
+        }
+
+        function deleteSaving(id) {
+            const saving = savings.find(s => s.id === id);
+            if (saving && confirm(`Hapus target "${saving.name}"?`)) {
+                savings = savings.filter(s => s.id !== id);
+                saveData();
+                updateAll();
+                showNotification(`🗑️ Target "${saving.name}" dihapus!`, 'success');
+            }
+        }
+
+        function deleteAllSavings() {
+            if (savings.length === 0) {
+                alert('Tidak ada target tabungan!');
+                return;
+            }
+            if (confirm('Hapus SEMUA target tabungan? Tindakan ini tidak dapat dibatalkan!')) {
+                savings = [];
+                saveData();
+                updateAll();
+                showNotification('Semua target tabungan dihapus!', 'warning');
+            }
+        }
+
+        let currentEditSavingId = null;
+        function openEditSaving(id) {
+            const s = savings.find(s => s.id === id);
+            if (s) {
+                currentEditSavingId = id;
+                document.getElementById('editSavingName').value = s.name;
+                document.getElementById('editSavingTarget').value = s.target;
+                document.getElementById('editSavingModal').classList.add('active');
+            }
+        }
+
+        function saveSavingEdit() {
+            const s = savings.find(s => s.id === currentEditSavingId);
+            if (s) {
+                const newName = document.getElementById('editSavingName').value.trim();
+                const newTarget = parseFloat(document.getElementById('editSavingTarget').value);
+                
+                if (!newName) {
+                    alert('Nama target tidak boleh kosong!');
+                    return;
+                }
+                if (isNaN(newTarget) || newTarget <= 0) {
+                    alert('Target harus lebih dari 0!');
+                    return;
+                }
+                
+                s.name = newName;
+                s.target = newTarget;
+                if (s.saved > s.target) s.saved = s.target;
+                
+                saveData();
+                updateAll();
+                closeSavingModal();
+                showNotification('Target tabungan diupdate!', 'success');
+            }
+        }
+
+        function closeSavingModal() {
+            document.getElementById('editSavingModal').classList.remove('active');
+            currentEditSavingId = null;
+        }
+
+        // ==================== CHARTS ====================
+        let cashChart = null;
+        let savingChart = null;
+
+        function updateCashChart() {
+            const currentMonth = getCurrentMonth();
+            const monthlyIncome = cashTransactions.filter(t => t.type === 'income' && t.date.slice(0,7) === currentMonth).reduce((s, t) => s + t.amount, 0);
+            const monthlyExpense = cashTransactions.filter(t => t.type === 'expense' && t.date.slice(0,7) === currentMonth).reduce((s, t) => s + t.amount, 0);
+            
+            if (cashChart) cashChart.destroy();
+            const ctx = document.getElementById('cashChart').getContext('2d');
+            cashChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Pemasukan', 'Pengeluaran'],
+                    datasets: [{
+                        label: 'Bulan Ini',
+                        data: [monthlyIncome, monthlyExpense],
+                        backgroundColor: ['#10b981', '#ef4444']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: { y: { ticks: { callback: v => 'Rp ' + v.toLocaleString() } } }
+                }
+            });
+        }
+
+        function updateSavingChart() {
+            if (savingChart) savingChart.destroy();
+            const ctx = document.getElementById('savingChart').getContext('2d');
+            if (savings.length > 0) {
+                savingChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: savings.map(s => s.name.length > 12 ? s.name.slice(0,10)+'..' : s.name),
+                        datasets: [
+                            { label: 'Target', data: savings.map(s => s.target), backgroundColor: '#e5e7eb' },
+                            { label: 'Terkumpul', data: savings.map(s => s.saved), backgroundColor: '#10b981' }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        scales: { y: { ticks: { callback: v => 'Rp ' + v.toLocaleString() } } }
+                    }
+                });
+            } else {
+                savingChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Belum Ada Target'],
+                        datasets: [{ data: [0], backgroundColor: '#e5e7eb' }]
+                    },
+                    options: { responsive: true }
+                });
+            }
+        }
+
+        // ==================== EXPORT ====================
+        function exportCashToExcel() {
+            if (cashTransactions.length === 0) { alert('Tidak ada data!'); return; }
+            const data = cashTransactions.map(t => ({
+                'Tanggal': new Date(t.date).toLocaleString('id-ID'),
+                'Deskripsi': t.description,
+                'Kategori': t.category,
+                'Jenis': t.type === 'income' ? 'Pemasukan' : 'Pengeluaran',
+                'Jumlah': t.amount
+            }));
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Pemasukan_Pengeluaran');
+            XLSX.writeFile(wb, `cash_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showNotification('Export Excel berhasil!', 'success');
+        }
+
+        function exportCashToCSV() {
+            if (cashTransactions.length === 0) { alert('Tidak ada data!'); return; }
+            const headers = ['Tanggal','Deskripsi','Kategori','Jenis','Jumlah'];
+            const rows = cashTransactions.map(t => [
+                new Date(t.date).toLocaleString('id-ID'),
+                t.description,
+                t.category,
+                t.type === 'income' ? 'Pemasukan' : 'Pengeluaran',
+                t.amount
+            ]);
+            const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `cash_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            showNotification('Export CSV berhasil!', 'success');
+        }
+
+        function exportSavingToExcel() {
+            if (savings.length === 0) { alert('Tidak ada data!'); return; }
+            const data = savings.map(s => ({
+                'Nama Target': s.name,
+                'Target': s.target,
+                'Terkumpul': s.saved,
+                'Sisa': s.target - s.saved,
+                'Progress (%)': ((s.saved / s.target) * 100).toFixed(1)
+            }));
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Tabungan');
+            XLSX.writeFile(wb, `savings_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showNotification('Export Excel berhasil!', 'success');
+        }
+
+        function exportSavingToCSV() {
+            if (savings.length === 0) { alert('Tidak ada data!'); return; }
+            const headers = ['Nama Target','Target','Terkumpul','Sisa','Progress (%)'];
+            const rows = savings.map(s => [
+                s.name,
+                s.target,
+                s.saved,
+                s.target - s.saved,
+                ((s.saved / s.target) * 100).toFixed(1)
+            ]);
+            const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `savings_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            showNotification('Export CSV berhasil!', 'success');
+        }
+
+        function resetCashFilter() {
+            document.getElementById('cashFilterType').value = 'all';
+            document.getElementById('cashFilterCategory').value = 'all';
+            document.getElementById('cashFilterMonth').value = '';
+            displayCashTransactions();
+        }
+
+        function showNotification(msg, type) {
+            const notif = document.createElement('div');
+            notif.textContent = msg;
+            notif.style.cssText = `
+                position: fixed; bottom: 20px; right: 20px; padding: 12px 20px;
+                background: ${type === 'success' ? '#10b981' : '#f59e0b'};
+                color: white; border-radius: 10px; z-index: 1000;
+                animation: slideInRight 0.3s ease-out; font-weight: bold;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            `;
+            document.body.appendChild(notif);
+            setTimeout(() => notif.remove(), 3000);
+        }
+
+        function updateAll() {
+            updateCashSummary();
+            updateCashFilterCategories();
+            displayCashTransactions();
+            updateCashChart();
+            
+            updateSavingSummary();
+            updateSavingSelect();
+            displaySavings();
+            updateSavingChart();
+        }
+
+        // ==================== EVENT LISTENERS ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cash event listeners
+            document.getElementById('addCashBtn').addEventListener('click', addCashTransaction);
+            document.getElementById('deleteAllCash').addEventListener('click', deleteAllCash);
+            document.getElementById('cashFilterType').addEventListener('change', displayCashTransactions);
+            document.getElementById('cashFilterCategory').addEventListener('change', displayCashTransactions);
+            document.getElementById('cashFilterMonth').addEventListener('change', displayCashTransactions);
+            document.getElementById('resetCashFilter').addEventListener('click', resetCashFilter);
+            document.getElementById('exportCashExcel').addEventListener('click', exportCashToExcel);
+            document.getElementById('exportCashCSV').addEventListener('click', exportCashToCSV);
+            document.getElementById('saveCashEdit').addEventListener('click', saveCashEdit);
+            document.getElementById('cancelCashEdit').addEventListener('click', closeCashModal);
+            
+            // Savings event listeners
+            const addSavingBtn = document.getElementById('addSavingBtn');
+            if (addSavingBtn) addSavingBtn.addEventListener('click', addSaving);
+            
+            const addToSavingBtn = document.getElementById('addToSavingBtn');
+            if (addToSavingBtn) addToSavingBtn.addEventListener('click', addToSaving);
+            
+            const deleteAllSavingBtn = document.getElementById('deleteAllSaving');
+            if (deleteAllSavingBtn) deleteAllSavingBtn.addEventListener('click', deleteAllSavings);
+            
+            const exportSavingExcelBtn = document.getElementById('exportSavingExcel');
+            if (exportSavingExcelBtn) exportSavingExcelBtn.addEventListener('click', exportSavingToExcel);
+            
+            const exportSavingCSVBtn = document.getElementById('exportSavingCSV');
+            if (exportSavingCSVBtn) exportSavingCSVBtn.addEventListener('click', exportSavingToCSV);
+            
+            const saveSavingEditBtn = document.getElementById('saveSavingEdit');
+            if (saveSavingEditBtn) saveSavingEditBtn.addEventListener('click', saveSavingEdit);
+            
+            const cancelSavingEditBtn = document.getElementById('cancelSavingEdit');
+            if (cancelSavingEditBtn) cancelSavingEditBtn.addEventListener('click', closeSavingModal);
+            
+            // Enter key shortcuts
+            document.getElementById('cashAmount').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') addCashTransaction();
+            });
+            
+            document.getElementById('addSavingAmount').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') addToSaving();
+            });
+            
+            document.getElementById('savingTarget').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') addSaving();
+            });
+        });
+        
+        const style = document.createElement('style');
+        style.textContent = `@keyframes slideInRight{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}`;
+        document.head.appendChild(style);
+        
+        loadData();
+    </script>
+</body>
+</html>
